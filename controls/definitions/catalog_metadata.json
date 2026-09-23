@@ -1,0 +1,9 @@
+{
+  "catalog_version": "1.0.0",
+  "source_file": "assessment_Geoportal_Sistem_Informasi_Geografis_Infrastruktur_PU_20260916.xlsx",
+  "source_sheet": "Detail Kontrol",
+  "source_baseline": "ArcGIS Enterprise Hardening Guide June 2026 + Appendices June 2026",
+  "control_count": 118,
+  "basic_count": 78,
+  "advanced_count": 40
+}
