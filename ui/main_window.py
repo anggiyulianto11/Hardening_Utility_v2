@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
@@ -12,6 +12,8 @@ from exports.discovery_export import export_discovery
 from ui.assessment_widget import AssessmentWidget
 from ui.catalog_widget import ControlCatalogWidget
 from ui.semi_automatic_widget import SemiAutomaticEvidenceWidget
+from ui.manual_review_widget import ManualReviewWidget
+from ui.reporting_widget import ReportingWidget
 
 
 class ConnectionWorker(QObject):
@@ -69,8 +71,8 @@ class DiscoveryWidget(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__(); self.setWindowTitle("ArcGIS Enterprise Hardening Utility v2 - Milestone 2B"); self.resize(1600,850)
-        self.tabs=QTabWidget(); self.discovery_widget=DiscoveryWidget(); self.catalog_widget=ControlCatalogWidget(); self.assessment_widget=AssessmentWidget(); self.evidence_widget=SemiAutomaticEvidenceWidget(); self.discovery_widget.discovery_completed.connect(self.assessment_widget.set_connection_registry); self.assessment_widget.assessment_completed.connect(self.evidence_widget.set_assessment_results)
-        self.tabs.addTab(self.discovery_widget,"Connection & Discovery"); self.tabs.addTab(self.catalog_widget,"Control Catalog"); self.tabs.addTab(self.assessment_widget,"Assessment"); self.tabs.addTab(self.evidence_widget,"Evidence Review"); self.setCentralWidget(self.tabs)
+        self.tabs=QTabWidget(); self.discovery_widget=DiscoveryWidget(); self.catalog_widget=ControlCatalogWidget(); self.assessment_widget=AssessmentWidget(); self.evidence_widget=SemiAutomaticEvidenceWidget(); self.manual_review_widget=ManualReviewWidget(); self.reporting_widget=ReportingWidget(self.evidence_widget.workspace if hasattr(self,'evidence_widget') else None,self.manual_review_widget.workspace); self.discovery_widget.discovery_completed.connect(self.assessment_widget.set_connection_registry); self.assessment_widget.assessment_completed.connect(self.reporting_widget.set_assessment_results); self.assessment_widget.assessment_run_completed.connect(self.reporting_widget.set_assessment_run); self.assessment_widget.assessment_completed.connect(self.evidence_widget.set_assessment_results)
+        self.tabs.addTab(self.discovery_widget,"Connection & Discovery"); self.tabs.addTab(self.catalog_widget,"Control Catalog"); self.tabs.addTab(self.assessment_widget,"Assessment"); self.tabs.addTab(self.evidence_widget,"Evidence Review"); self.tabs.addTab(self.manual_review_widget,"Manual Review"); self.tabs.addTab(self.reporting_widget,"Reporting"); self.setCentralWidget(self.tabs)
 
 def run_app():
     app=QApplication(sys.argv); window=MainWindow(); window.show(); sys.exit(app.exec())

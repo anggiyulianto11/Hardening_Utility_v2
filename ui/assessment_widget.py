@@ -1,4 +1,4 @@
-﻿import json
+import json
 from PySide6.QtCore import QObject,QThread,Signal
 from PySide6.QtWidgets import QComboBox,QHBoxLayout,QLabel,QMessageBox,QPushButton,QTableWidget,QTableWidgetItem,QVBoxLayout,QWidget
 from analysis.orchestrator import AssessmentOrchestrator
@@ -11,6 +11,7 @@ class AssessmentWorker(QObject):
         except Exception as exc: self.failed.emit(str(exc))
 class AssessmentWidget(QWidget):
     assessment_completed = Signal(object)
+    assessment_run_completed = Signal(object)
     HEADERS=["Target","Component","Control ID","Profile","Control Name","Current Condition","Expected Condition","Status","Security Risk","Recommendation","Evidence","Error"]
     def __init__(self,parent=None):
         super().__init__(parent); self.connection_registry=None; self.thread=None; self.worker=None; self.results=[]
@@ -21,7 +22,7 @@ class AssessmentWidget(QWidget):
     def analyze(self):
         if not self.connection_registry: QMessageBox.warning(self,"Assessment","Lakukan discovery terlebih dahulu."); return
         self.button.setEnabled(False); self.summary.setText("Menjalankan server Batch 1 dan portal Batch 2..."); self.thread=QThread(self); self.worker=AssessmentWorker(self.connection_registry); self.worker.moveToThread(self.thread); self.thread.started.connect(self.worker.run); self.worker.completed.connect(self.on_completed); self.worker.failed.connect(self.on_failed); self.worker.completed.connect(self.thread.quit); self.worker.failed.connect(self.thread.quit); self.thread.finished.connect(self.worker.deleteLater); self.thread.finished.connect(self.thread.deleteLater); self.thread.start()
-    def on_completed(self,run,results,count): self.button.setEnabled(True); self.results=results; self.refresh(); self.assessment_completed.emit(results); self.summary.setText(f"Run {run.run_id[:8]} selesai: {run.result_count} hasil, {run.error_count} error, {count} API evidence requests.")
+    def on_completed(self,run,results,count): self.button.setEnabled(True); self.results=results; self.refresh(); self.assessment_completed.emit(results); self.assessment_run_completed.emit(run); self.summary.setText(f"Run {run.run_id[:8]} selesai: {run.result_count} hasil, {run.error_count} error, {count} API evidence requests.")
     def refresh(self,*_):
         s=self.status.currentText(); c=self.component.currentText(); p=self.profile.currentText(); items=[r for r in self.results if (s=="Semua" or r.status.value==s) and (c=="Semua" or r.component_type==c) and (p=="Semua" or r.profile==p)]; self.table.setRowCount(len(items))
         for row,r in enumerate(items):
