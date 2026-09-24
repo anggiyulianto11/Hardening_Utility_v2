@@ -23,7 +23,14 @@ except ImportError:
     RemediationState = None
 
 
-ESSENTIAL_CONTROL_NAMES = ['Configure New Member Default Role as Viewer', 'Disable Anonymous Access', 'Disable Automatic Enterprise Account Creation', 'Disable Built-In Account Self-Creation', 'Disable JSONP Callback Functions', 'Disable Portal Directory', 'Disable Portal Servlets', 'Disable Public User Profile Sharing', 'Disable Services Directory', 'Disable Show Social Media Links', 'Disable Token Acquisition via HTTP GET', 'Enable Standardized Queries', 'Implement Signed CA Certificates', 'Restrict Allowed Origins', 'Verify Feature Service XSS Filter Default', 'Verify HTTPS Enforcement', 'configure_new_member_default_role_as_viewer', 'disable_anonymous_access', 'disable_builtin_account_self_creation', 'disable_portal_servlets', 'disable_public_user_profile_sharing', 'disable_show_social_media_links', 'disable_token_acquisition_via_http_get', 'enable_standardized_queries', 'verify_feature_service_xss_filter_default']
+ESSENTIAL_CONTROL_IDS = ['AS-A4', 'AS-B10', 'AS-B12', 'AS-B14', 'AS-B16', 'AS-B23', 'AS-B5', 'AS-B7', 'AS-B8', 'AS-B9', 'DP-B2', 'DP-B3', 'IA-B10', 'IA-B13', 'IA-B24']
+ESSENTIAL_NAME_RULES = {'automatic enterprise account creation': ['automatic', 'enterprise', 'account', 'creation'], 'anonymous access': ['anonymous', 'access'], 'services directory': ['services', 'directory'], 'allowed origins': ['allowed', 'origins']}
+
+def is_essential_control(control):
+    if control.control_id in ESSENTIAL_CONTROL_IDS:
+        return True
+    normalized = ' '.join(str(control.control_name).lower().replace('-', ' ').split())
+    return any(all(token in normalized for token in tokens) for tokens in ESSENTIAL_NAME_RULES.values())
 
 STATUS_LABELS = {
     "SESUAI": "Sesuai", "TIDAK SESUAI": "Perlu Hardening",
@@ -96,7 +103,7 @@ class UnifiedControlWorkspace(QWidget):
         self.analyze_button = QPushButton("Analyze Environment")
         self.analyze_button.setEnabled(False)
         self.analyze_button.clicked.connect(self.run_assessment)
-        header.addWidget(self.analyze_button)
+        # Analyze button is placed in the filter row below.
         root.addLayout(header)
 
         filters = QHBoxLayout()
@@ -113,7 +120,7 @@ class UnifiedControlWorkspace(QWidget):
         self.target_filter = QComboBox(); self.target_filter.addItem("Semua Target")
         self.target_filter.currentTextChanged.connect(self.refresh_tree)
         filters.addWidget(QLabel("Cari")); filters.addWidget(self.search, 1)
-        filters.addWidget(self.profile); filters.addWidget(self.status_filter); filters.addWidget(self.target_filter)
+        filters.addWidget(self.profile); filters.addWidget(self.status_filter); filters.addWidget(self.target_filter); filters.addWidget(self.analyze_button)
         root.addLayout(filters)
 
         self.summary = QLabel("Hubungkan environment untuk memulai assessment.")
@@ -249,13 +256,18 @@ class UnifiedControlWorkspace(QWidget):
         target_id = self.target_filter.currentData() if hasattr(self, "target_filter") else None
         counts = Counter()
         shown = 0
-        for control in self.control_registry.get_all_controls():
+        method_order = {"Otomatis": 0, "Semi Otomatis": 1, "Peninjauan Manual": 2}
+        controls = sorted(
+            self.control_registry.get_all_controls(),
+            key=lambda item: (method_order.get(item.verification_method, 99), item.sequence),
+        )
+        for control in controls:
             status = self._effective_status(control)
             label = STATUS_LABELS.get(status, status)
             remediation = self._has_remediation(control.control_id)
             if search and search not in f"{control.control_id} {control.control_name}".lower():
                 continue
-            if profile == "Essentials" and control.control_name not in ESSENTIAL_CONTROL_NAMES:
+            if profile == "Essentials" and not is_essential_control(control):
                 continue
             if profile not in ("Semua Profil", "Essentials") and control.profile != profile:
                 continue

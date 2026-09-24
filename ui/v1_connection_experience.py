@@ -1,9 +1,21 @@
-﻿from datetime import datetime
+from datetime import datetime
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
-    QCheckBox, QFrame, QHBoxLayout, QLabel, QPushButton,
-    QSizePolicy, QTableWidget, QVBoxLayout, QWidget,
+    QButtonGroup,
+    QCheckBox,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QPushButton,
+    QRadioButton,
+    QSizePolicy,
+    QTableWidget,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 
@@ -16,91 +28,244 @@ class V1ConnectionExperience(QWidget):
         self.inner = inner_widget
         self._tables = []
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(8)
+        self.root = QVBoxLayout(self)
+        self.root.setContentsMargins(10, 8, 10, 8)
+        self.root.setSpacing(4)
 
-        # Keep the original connection form visible at the top. This contains
-        # Portal URL, username, password, mode, TLS checkbox, and Connect button.
         self.inner.setParent(self)
         self.inner.setVisible(True)
-        self.inner.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        root.addWidget(self.inner, 1)
+        self._hide_duplicate_status()
+        self._replace_target_selector()
+        self._disable_tls_default()
+        self._compact_connection_group()
+        self._extract_tables()
+        self._set_inner_fixed_height()
+        self.root.addWidget(self.inner, 0)
 
-        self.summary_card = QFrame()
+        self.actions_frame = QFrame(self)
+        self.actions_frame.setObjectName("plainActions")
+        self.actions_frame.setFrameShape(QFrame.Shape.NoFrame)
+        self.actions_frame.setStyleSheet(
+            "QFrame#plainActions { background: transparent; border: none; }"
+        )
+        # A fixed transparent band keeps the buttons exactly centered between
+        # the Connection border and the Detail Target panel.
+        self.actions_frame.setFixedHeight(58)
+        self.actions_frame.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
+        actions = QHBoxLayout(self.actions_frame)
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(8)
+        actions.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+        connect_button = self._find_button(("connect discover", "connect & discover"))
+        export_button = self._find_button(("export discovery json",))
+        if connect_button:
+            self._move_button(connect_button, actions)
+            connect_button.setFixedSize(190, 34)
+
+        self.details_button = QPushButton("Tampilkan Detail Target", self.actions_frame)
+        self.details_button.setCheckable(True)
+        self.details_button.setFixedSize(190, 34)
+        self.details_button.toggled.connect(self.toggle_target_tables)
+        actions.addWidget(self.details_button)
+
+        if export_button:
+            self._move_button(export_button, actions)
+            export_button.setFixedSize(190, 34)
+        actions.addStretch(1)
+
+        self.actions_row = QHBoxLayout()
+        self.actions_row.setContentsMargins(12, 0, 12, 0)
+        self.actions_row.setSpacing(0)
+        self.actions_row.addWidget(self.actions_frame)
+        self.root.addLayout(self.actions_row, 0)
+
+        self.detail_frame = QFrame(self)
+        self.detail_frame.setObjectName("card")
+        detail_layout = QVBoxLayout(self.detail_frame)
+        detail_layout.setContentsMargins(6, 6, 6, 6)
+        detail_layout.setSpacing(4)
+        for table in self._tables:
+            table.setParent(self.detail_frame)
+            table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self._configure_table(table)
+            table.show()
+            detail_layout.addWidget(table, 1)
+        self.detail_frame.hide()
+        self.root.addWidget(self.detail_frame, 1)
+
+        self.empty_spacer = QWidget(self)
+        self.empty_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.root.addWidget(self.empty_spacer, 1)
+
+        self.summary_card = QFrame(self)
         self.summary_card.setObjectName("summaryCard")
+        self.summary_card.setMaximumHeight(105)
         self.summary_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        self.summary_card.setMaximumHeight(180)
         summary_layout = QVBoxLayout(self.summary_card)
-        summary_layout.setContentsMargins(12, 8, 12, 8)
-        summary_layout.setSpacing(4)
-        heading = QLabel("Connection Status")
+        summary_layout.setContentsMargins(10, 6, 10, 6)
+        summary_layout.setSpacing(2)
+        heading = QLabel("Connection Status", self.summary_card)
         heading.setObjectName("sectionTitle")
-        self.summary = QLabel("Belum terhubung. Lengkapi URL environment dan kredensial, lalu klik Connect & Discover.")
+        self.summary = QLabel(
+            "Belum terhubung. Lengkapi URL environment dan kredensial, lalu klik Connect & Discover.",
+            self.summary_card,
+        )
         self.summary.setWordWrap(True)
         summary_layout.addWidget(heading)
         summary_layout.addWidget(self.summary)
-        root.addWidget(self.summary_card)
-
-        footer = QFrame()
-        footer.setObjectName("activityCard")
-        footer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        footer.setMaximumHeight(92)
-        footer_layout = QVBoxLayout(footer)
-        footer_layout.setContentsMargins(10, 7, 10, 7)
-        footer_layout.setSpacing(4)
-        actions = QHBoxLayout()
-        self.details_button = QPushButton("Tampilkan Detail Target")
-        self.details_button.setCheckable(True)
-        self.details_button.toggled.connect(self.toggle_target_tables)
-        actions.addWidget(self.details_button)
-        actions.addStretch()
-        footer_layout.addLayout(actions)
-        self.activity = QLabel("Activity: Ready")
-        self.activity.setWordWrap(True)
-        footer_layout.addWidget(self.activity)
-        root.addWidget(footer)
-
-        # Security choice requested by the project: verification is opt-in.
-        for check in self.inner.findChildren(QCheckBox):
-            text = check.text().lower()
-            if "tls" in text or "ssl" in text or "sertifikat" in text:
-                check.setChecked(False)
-
-        # Hide only discovery result tables. Input fields and connection form remain visible.
-        self._tables = self.inner.findChildren(QTableWidget)
-        for table in self._tables:
-            table.setVisible(False)
+        self.root.addWidget(self.summary_card, 0)
 
         if hasattr(self.inner, "discovery_completed"):
             self.inner.discovery_completed.connect(self._on_discovery)
 
-    def toggle_target_tables(self, visible):
-        for table in self._tables:
-            table.setVisible(visible)
-        self.details_button.setText(
-            "Sembunyikan Detail Target" if visible else "Tampilkan Detail Target"
+    def _hide_duplicate_status(self):
+        for label in self.inner.findChildren(QLabel):
+            value = " ".join(label.text().strip().lower().split())
+            if value == "connection and target discovery":
+                label.setMaximumHeight(34)
+            elif value == "belum terhubung." or value.startswith("discovery selesai") or value == "ready":
+                label.hide()
+                label.setMaximumHeight(0)
+                label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+
+    def _replace_target_selector(self):
+        radios = self.inner.findChildren(QRadioButton)
+        target_group = next(
+            (group for group in self.inner.findChildren(QGroupBox)
+             if group.title().strip().lower() == "target type"),
+            None,
         )
+        if len(radios) < 2 or target_group is None or target_group.layout() is None:
+            return
+        for radio in radios:
+            radio.hide()
+            radio.setMaximumHeight(0)
+
+        selector = QFrame(target_group)
+        selector.setObjectName("targetSelector")
+        selector_layout = QHBoxLayout(selector)
+        selector_layout.setContentsMargins(4, 4, 4, 4)
+        selector_layout.setSpacing(4)
+        button_group = QButtonGroup(selector)
+        button_group.setExclusive(True)
+
+        for index, radio in enumerate(radios[:2]):
+            button = QToolButton(selector)
+            button.setObjectName("targetChoice")
+            button.setText(radio.text())
+            button.setCheckable(True)
+            button.setChecked(radio.isChecked())
+            button.setMinimumHeight(34)
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            button.clicked.connect(lambda checked, source=radio: source.setChecked(checked))
+            radio.toggled.connect(button.setChecked)
+            button_group.addButton(button, index)
+            selector_layout.addWidget(button)
+
+        target_group.layout().addWidget(selector)
+        target_group.layout().setContentsMargins(8, 6, 8, 6)
+        target_group.layout().setSpacing(2)
+        target_group.setFixedHeight(88)
+
+    def _disable_tls_default(self):
+        for check in self.inner.findChildren(QCheckBox):
+            if any(word in check.text().lower() for word in ("tls", "ssl", "sertifikat")):
+                check.setChecked(False)
+
+    def _compact_connection_group(self):
+        connection_group = next(
+            (group for group in self.inner.findChildren(QGroupBox)
+             if group.title().strip().lower() == "connection"),
+            None,
+        )
+        if connection_group is None:
+            return
+        layout = connection_group.layout()
+        if layout:
+            layout.setContentsMargins(10, 8, 10, 8)
+            layout.setSpacing(4)
+            layout.activate()
+        connection_group.setFixedHeight(178)
+        connection_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def _extract_tables(self):
+        self._tables = self.inner.findChildren(QTableWidget)
+        for table in self._tables:
+            parent = table.parentWidget()
+            layout = parent.layout() if parent else None
+            if layout:
+                layout.removeWidget(table)
+            table.hide()
+
+    def _set_inner_fixed_height(self):
+        self.inner.setMinimumHeight(345)
+        self.inner.setMaximumHeight(345)
+        self.inner.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def _configure_table(self, table):
+        header = table.horizontalHeader()
+        header.setMinimumSectionSize(72)
+        header.setStretchLastSection(False)
+        labels = {
+            table.horizontalHeaderItem(i).text().strip().lower(): i
+            for i in range(table.columnCount())
+            if table.horizontalHeaderItem(i) is not None
+        }
+        fixed = {"target": 155, "component": 110, "version": 82, "state": 95, "route": 125}
+        stretch = {"role / function", "service url", "registered admin url", "effective admin url", "detail"}
+        for name, index in labels.items():
+            if name in fixed:
+                header.setSectionResizeMode(index, QHeaderView.ResizeMode.Fixed)
+                table.setColumnWidth(index, fixed[name])
+            elif name in stretch:
+                header.setSectionResizeMode(index, QHeaderView.ResizeMode.Stretch)
+            else:
+                header.setSectionResizeMode(index, QHeaderView.ResizeMode.Interactive)
+        table.verticalHeader().setDefaultSectionSize(31)
+        table.setWordWrap(False)
+
+    def _find_button(self, names):
+        return next(
+            (button for button in self.inner.findChildren(QPushButton)
+             if " ".join(button.text().strip().lower().split()) in names),
+            None,
+        )
+
+    def _move_button(self, button, target_layout):
+        parent = button.parentWidget()
+        old_layout = parent.layout() if parent else None
+        if old_layout:
+            old_layout.removeWidget(button)
+        button.setParent(self.actions_frame)
+        target_layout.addWidget(button)
+
+    def toggle_target_tables(self, visible):
+        self.detail_frame.setVisible(visible)
+        self.empty_spacer.setVisible(not visible)
+        self.details_button.setText("Sembunyikan Detail Target" if visible else "Tampilkan Detail Target")
+        self.root.setStretchFactor(self.detail_frame, 1 if visible else 0)
+        self.root.setStretchFactor(self.empty_spacer, 0 if visible else 1)
+        self.updateGeometry()
 
     def _on_discovery(self, registry):
         targets = registry.get_connected_targets()
-        portals = [t for t in targets if str(t.component_type).lower() == "portal"]
-        servers = [t for t in targets if str(t.component_type).lower() == "server"]
+        portals = [target for target in targets if str(target.component_type).lower() == "portal"]
+        servers = [target for target in targets if str(target.component_type).lower() == "server"]
         token_store = getattr(registry, "tokens", None)
         portal_token = getattr(token_store, "portal_token", None) if token_store else None
         server_tokens = getattr(token_store, "server_tokens", {}) if token_store else {}
         portal_valid = bool(portal_token and portal_token.valid())
-        valid_servers = sum(1 for item in server_tokens.values() if item and item.valid())
+        valid_servers = sum(1 for token in server_tokens.values() if token and token.valid())
         checked = datetime.now().strftime("%d %b %Y %H:%M:%S")
-
         self.summary.setText(
-            f"â— CONNECTED   |   Environment: 1   |   Portal: {len(portals)}   |   "
-            f"ArcGIS Server: {len(servers)}\n"
+            f"CONNECTED   |   Environment: 1   |   Portal: {len(portals)}   |   ArcGIS Server: {len(servers)}\n"
             f"Portal token: {'Valid' if portal_valid else 'Unavailable / expired'}   |   "
             f"Server tokens: {valid_servers}/{len(servers)} valid   |   Last checked: {checked}"
         )
-        self.activity.setText(
-            f"Activity: Discovery selesai. {len(targets)} target ditemukan dan siap dianalisis."
-        )
-        self.activity_message.emit(self.activity.text())
+        message = f"Discovery selesai. {len(targets)} target ditemukan dan siap dianalisis."
+        self.activity_message.emit(message)
         self.discovery_completed.emit(registry)
