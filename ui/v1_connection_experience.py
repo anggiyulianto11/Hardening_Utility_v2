@@ -251,21 +251,138 @@ class V1ConnectionExperience(QWidget):
         self.root.setStretchFactor(self.empty_spacer, 0 if visible else 1)
         self.updateGeometry()
 
+    def _portal_info_endpoint(self, portal_target):
+        admin_url = str(
+            getattr(portal_target, "effective_admin_url", "")
+            or getattr(portal_target, "registered_admin_url", "")
+            or ""
+        ).rstrip("/")
+        if not admin_url:
+            return ""
+        return f"{admin_url}/info"
+
+    def _read_portal_product_info(self, registry, portal_target):
+        endpoint = self._portal_info_endpoint(portal_target)
+        if not endpoint:
+            return None, "Portal Admin URL tidak tersedia."
+
+        token_store = getattr(registry, "tokens", None)
+        token_record = getattr(token_store, "portal_token", None) if token_store else None
+        if not token_record or not token_record.valid():
+            return None, "Portal token tidak tersedia atau kedaluwarsa."
+
+        client = getattr(registry, "client", None)
+        if client is None:
+            return None, "ArcGIS HTTP client tidak tersedia."
+
+        try:
+            payload = client.request_json(
+                "GET",
+                endpoint,
+                params={"token": token_record.token, "f": "json"},
+            )
+        except Exception as exc:
+            return None, f"Portal info gagal dibaca: {exc}"
+
+        if not isinstance(payload, dict):
+            return None, "Portal info tidak mengembalikan JSON object."
+
+        version = (
+            payload.get("fullVersion")
+            or payload.get("fullversion")
+            or payload.get("currentVersion")
+            or payload.get("currentversion")
+        )
+        if not version:
+            return None, "Portal info tidak memuat currentversion/fullVersion."
+        return str(version).strip(), ""
+
+    def _apply_portal_identity(self, portal_target, version):
+        # Enrich the shared target object so Control Catalog and Reporting receive
+        # the same corrected Portal identity.
+        for attribute, value in (
+            ("version", version),
+            ("role", "Portal for ArcGIS"),
+            ("server_role", "Portal for ArcGIS"),
+        ):
+            try:
+                setattr(portal_target, attribute, value)
+            except Exception:
+                pass
+
+        metadata = getattr(portal_target, "metadata", None)
+        if isinstance(metadata, dict):
+            metadata["portal_product_version"] = version
+            metadata["role"] = "Portal for ArcGIS"
+            metadata["portal_info_endpoint"] = self._portal_info_endpoint(portal_target)
+
+    def _refresh_portal_table_row(self, version):
+        for table in self._tables:
+            headers = {}
+            for column in range(table.columnCount()):
+                item = table.horizontalHeaderItem(column)
+                if item is not None:
+                    headers[item.text().strip().lower()] = column
+
+            component_column = headers.get("component")
+            version_column = headers.get("version")
+            role_column = headers.get("role / function")
+            if component_column is None:
+                continue
+
+            for row in range(table.rowCount()):
+                component_item = table.item(row, component_column)
+                if component_item is None:
+                    continue
+                if component_item.text().strip().lower() != "portal":
+                    continue
+                if version_column is not None and table.item(row, version_column):
+                    table.item(row, version_column).setText(version)
+                    table.item(row, version_column).setToolTip(version)
+                if role_column is not None and table.item(row, role_column):
+                    table.item(row, role_column).setText("Portal for ArcGIS")
+                    table.item(row, role_column).setToolTip("Portal for ArcGIS")
+
     def _on_discovery(self, registry):
         targets = registry.get_connected_targets()
-        portals = [target for target in targets if str(target.component_type).lower() == "portal"]
-        servers = [target for target in targets if str(target.component_type).lower() == "server"]
+        portals = [
+            target for target in targets
+            if str(target.component_type).lower() == "portal"
+        ]
+        servers = [
+            target for target in targets
+            if str(target.component_type).lower() == "server"
+        ]
+
+        portal_info_warning = ""
+        if portals:
+            version, portal_info_warning = self._read_portal_product_info(
+                registry, portals[0]
+            )
+            if version:
+                self._apply_portal_identity(portals[0], version)
+                self._refresh_portal_table_row(version)
+
         token_store = getattr(registry, "tokens", None)
         portal_token = getattr(token_store, "portal_token", None) if token_store else None
         server_tokens = getattr(token_store, "server_tokens", {}) if token_store else {}
         portal_valid = bool(portal_token and portal_token.valid())
-        valid_servers = sum(1 for token in server_tokens.values() if token and token.valid())
+        valid_servers = sum(
+            1 for token in server_tokens.values() if token and token.valid()
+        )
         checked = datetime.now().strftime("%d %b %Y %H:%M:%S")
         self.summary.setText(
-            f"CONNECTED   |   Environment: 1   |   Portal: {len(portals)}   |   ArcGIS Server: {len(servers)}\n"
+            f"CONNECTED   |   Environment: 1   |   Portal: {len(portals)}   |   "
+            f"ArcGIS Server: {len(servers)}\n"
             f"Portal token: {'Valid' if portal_valid else 'Unavailable / expired'}   |   "
-            f"Server tokens: {valid_servers}/{len(servers)} valid   |   Last checked: {checked}"
+            f"Server tokens: {valid_servers}/{len(servers)} valid   |   "
+            f"Last checked: {checked}"
         )
-        message = f"Discovery selesai. {len(targets)} target ditemukan dan siap dianalisis."
+
+        message = (
+            f"Discovery selesai. {len(targets)} target ditemukan dan siap dianalisis."
+        )
+        if portal_info_warning:
+            message += f" Portal version fallback digunakan: {portal_info_warning}"
         self.activity_message.emit(message)
         self.discovery_completed.emit(registry)
