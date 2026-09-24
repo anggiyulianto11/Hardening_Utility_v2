@@ -6,12 +6,13 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
     QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
-    QPushButton, QSplitter, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QPushButton, QSizePolicy, QSplitter, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
     QTextEdit,
 )
 
 from analysis.orchestrator import AssessmentOrchestrator
 from controls.registry import ControlRegistry
+from ui.neutral_tree_delegate import NeutralTreeDelegate
 from manual_review.workspace import ManualReviewWorkspace
 from manual_review.models import ManualEvidenceReference
 from analysis.semi_automatic import EvidenceReference, SemiAutomaticWorkspace
@@ -101,6 +102,10 @@ class UnifiedControlWorkspace(QWidget):
         title_box.addWidget(note)
         header.addLayout(title_box, 1)
         self.analyze_button = QPushButton("Analyze Environment")
+        self.analyze_button.setFixedSize(170, 34)
+        self.analyze_button.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+        )
         self.analyze_button.setEnabled(False)
         self.analyze_button.clicked.connect(self.run_assessment)
         # Analyze button is placed in the filter row below.
@@ -133,6 +138,26 @@ class UnifiedControlWorkspace(QWidget):
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.tree.itemSelectionChanged.connect(self.show_selected)
         self.tree.setAlternatingRowColors(True)
+        self.tree.setObjectName("controlCatalogTree")
+        self.tree.setMouseTracking(False)
+        self.tree.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.tree.setAllColumnsShowFocus(False)
+        self.tree.setAttribute(Qt.WidgetAttribute.WA_MacShowFocusRect, False)
+        self.tree.setItemDelegate(NeutralTreeDelegate(self.tree))
+        self.tree.setStyleSheet("""
+            QTreeWidget#controlCatalogTree {
+                outline: none;
+            }
+            QTreeWidget#controlCatalogTree::item:hover,
+            QTreeWidget#controlCatalogTree::item:selected,
+            QTreeWidget#controlCatalogTree::item:selected:active,
+            QTreeWidget#controlCatalogTree::item:selected:!active,
+            QTreeWidget#controlCatalogTree::branch:selected {
+                background: transparent;
+                border: none;
+                outline: none;
+            }
+        """)
         self.tree.setUniformRowHeights(False)
         self.tree.setIndentation(22)
         self.tree.header().setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from PySide6.QtCore import Signal, Qt
+from ui.target_detail_table import TargetDetailTable
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -88,12 +89,16 @@ class V1ConnectionExperience(QWidget):
         detail_layout = QVBoxLayout(self.detail_frame)
         detail_layout.setContentsMargins(6, 6, 6, 6)
         detail_layout.setSpacing(4)
+        self.detail_tables = []
         for table in self._tables:
-            table.setParent(self.detail_frame)
-            table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            self._configure_table(table)
-            table.show()
-            detail_layout.addWidget(table, 1)
+            table.hide()
+            detail_table = TargetDetailTable(table, self.detail_frame)
+            detail_table.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Expanding,
+            )
+            self.detail_tables.append(detail_table)
+            detail_layout.addWidget(detail_table, 1)
         self.detail_frame.hide()
         self.root.addWidget(self.detail_frame, 1)
 
@@ -362,6 +367,8 @@ class V1ConnectionExperience(QWidget):
             if version:
                 self._apply_portal_identity(portals[0], version)
                 self._refresh_portal_table_row(version)
+                for detail_table in getattr(self, 'detail_tables', []):
+                    detail_table.refresh_from_source()
 
         token_store = getattr(registry, "tokens", None)
         portal_token = getattr(token_store, "portal_token", None) if token_store else None
