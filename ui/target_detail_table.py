@@ -51,6 +51,8 @@ class TargetDetailsDialog(QDialog):
             ("Target Name", "Target"),
             ("Komponen", "Component"),
             ("Role / Function", "Role / Function"),
+            ("Registered Machines", "Registered Machines"),
+            ("Machines Endpoint", "Machines Endpoint"),
             ("Deployment Mode", "Deployment Mode"),
             ("Versi", "Version"),
             ("Federation State", "Federation State"),
@@ -109,8 +111,9 @@ class TargetDetailTable(QTableWidget):
     HEADERS = [
         "URL Akses / Web Adaptor",
         "Komponen",
-        "Role / Function",
         "Versi",
+        "Role / Function",
+        "Registered Machines",
         "Status",
         "Route",
         "Action",
@@ -128,9 +131,7 @@ class TargetDetailTable(QTableWidget):
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setItemDelegate(NeutralTableDelegate(self))
         self.setStyleSheet("""
-            QTableWidget {
-                outline: none;
-            }
+            QTableWidget { outline: none; }
             QTableWidget::item:hover,
             QTableWidget::item:selected,
             QTableWidget::item:selected:active,
@@ -144,21 +145,21 @@ class TargetDetailTable(QTableWidget):
         self.setWordWrap(False)
         self.verticalHeader().setDefaultSectionSize(34)
         self.horizontalHeaderItem(0).setToolTip(URL_TOOLTIP)
-
         header = self.horizontalHeader()
         header.setMinimumSectionSize(68)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
         self.setColumnWidth(1, 125)
-        self.setColumnWidth(3, 85)
-        self.setColumnWidth(4, 105)
-        self.setColumnWidth(5, 135)
-        self.setColumnWidth(6, 68)
+        self.setColumnWidth(2, 85)
+        self.setColumnWidth(5, 105)
+        self.setColumnWidth(6, 135)
+        self.setColumnWidth(7, 68)
         self.refresh_from_source()
 
     def _source_headers(self):
@@ -192,14 +193,20 @@ class TargetDetailTable(QTableWidget):
             values = [
                 details.get("Service URL", "-"),
                 friendly(details.get("Component"), COMPONENT_LABELS),
-                details.get("Role / Function", "-"),
                 details.get("Version", "-"),
+                details.get("Role / Function", "-"),
+                details.get("Registered Machines", "-"),
                 friendly(details.get("State"), STATE_LABELS),
                 friendly(details.get("Route"), ROUTE_LABELS),
             ]
             for column, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
-                item.setToolTip(URL_TOOLTIP if column == 0 else str(value))
+                if column == 0:
+                    item.setToolTip(URL_TOOLTIP)
+                elif column == 4:
+                    item.setToolTip(details.get("Registered Machines", "-") or "-")
+                else:
+                    item.setToolTip(str(value))
                 self.setItem(row, column, item)
 
             button = QPushButton("Detail")
@@ -220,7 +227,7 @@ class TargetDetailTable(QTableWidget):
             layout.setContentsMargins(2, 1, 2, 1)
             layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(button)
-            self.setCellWidget(row, 6, container)
+            self.setCellWidget(row, 7, container)
 
     def show_details(self, row):
         if 0 <= row < len(self.rows_data):

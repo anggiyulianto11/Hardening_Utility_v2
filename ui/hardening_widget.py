@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from PySide6.QtWidgets import (
     QFileDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton,
@@ -29,7 +29,7 @@ class HardeningWidget(QWidget):
         )
         note.setWordWrap(True)
         layout.addWidget(note)
-        self.summary = QLabel("Jalankan Connect & Discover untuk memuat target server.")
+        self.summary = QLabel("Jalankan Connect Discover untuk memuat target server.")
         layout.addWidget(self.summary)
         self.table = QTableWidget(0, len(self.HEADERS))
         self.table.setHorizontalHeaderLabels(self.HEADERS)

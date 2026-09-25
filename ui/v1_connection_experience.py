@@ -2,6 +2,7 @@ from datetime import datetime
 
 from PySide6.QtCore import Signal, Qt
 from ui.target_detail_table import TargetDetailTable
+from ui.registered_machines import read_registered_machines
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -13,7 +14,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QRadioButton,
     QSizePolicy,
-    QTableWidget,
+    QTableWidget, QTableWidgetItem,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -61,7 +62,7 @@ class V1ConnectionExperience(QWidget):
         actions.setSpacing(8)
         actions.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
-        connect_button = self._find_button(("connect discover", "connect & discover"))
+        connect_button = self._find_button(("connect discover", "connect & discover", "connect standalone server", "connect server"))
         export_button = self._find_button(("export discovery json",))
         if connect_button:
             self._move_button(connect_button, actions)
@@ -116,7 +117,7 @@ class V1ConnectionExperience(QWidget):
         heading = QLabel("Connection Status", self.summary_card)
         heading.setObjectName("sectionTitle")
         self.summary = QLabel(
-            "Belum terhubung. Lengkapi URL environment dan kredensial, lalu klik Connect & Discover.",
+            "Belum terhubung. Lengkapi URL environment dan kredensial, lalu klik Connect Discover.",
             self.summary_card,
         )
         self.summary.setWordWrap(True)
@@ -124,6 +125,7 @@ class V1ConnectionExperience(QWidget):
         summary_layout.addWidget(self.summary)
         self.root.addWidget(self.summary_card, 0)
 
+        self._normalize_connect_button()
         if hasattr(self.inner, "discovery_completed"):
             self.inner.discovery_completed.connect(self._on_discovery)
 
@@ -232,6 +234,13 @@ class V1ConnectionExperience(QWidget):
                 header.setSectionResizeMode(index, QHeaderView.ResizeMode.Interactive)
         table.verticalHeader().setDefaultSectionSize(31)
         table.setWordWrap(False)
+
+    def _normalize_connect_button(self):
+        button = self._find_button((
+            "connect discover", "connect standalone server", "connect server",
+        ))
+        if button is not None:
+            button.setText("Connect Discover")
 
     def _find_button(self, names):
         return next(
@@ -348,8 +357,94 @@ class V1ConnectionExperience(QWidget):
                     table.item(row, role_column).setText("Portal for ArcGIS")
                     table.item(row, role_column).setToolTip("Portal for ArcGIS")
 
+    def _ensure_source_metadata_columns(self):
+        for table in self._tables:
+            headers = [
+                table.horizontalHeaderItem(i).text().strip()
+                if table.horizontalHeaderItem(i) is not None else ""
+                for i in range(table.columnCount())
+            ]
+            for name in ("Registered Machines", "Machines Endpoint", "Machines Error"):
+                if name not in headers:
+                    column = table.columnCount()
+                    table.insertColumn(column)
+                    table.setHorizontalHeaderItem(column, QTableWidgetItem(name))
+                    table.setColumnHidden(column, True)
+                    headers.append(name)
+
+    def _source_headers(self, table):
+        return {
+            table.horizontalHeaderItem(i).text().strip(): i
+            for i in range(table.columnCount())
+            if table.horizontalHeaderItem(i) is not None
+        }
+
+    def _find_source_row(self, table, target):
+        headers = self._source_headers(table)
+        component_column = headers.get("Component")
+        service_column = headers.get("Service URL")
+        target_column = headers.get("Target")
+        target_component = str(getattr(target, "component_type", "")).lower()
+        target_service = str(getattr(target, "service_url", "")).rstrip("/").lower()
+        target_name = str(getattr(target, "target_name", "")).lower()
+        for row in range(table.rowCount()):
+            component = (
+                table.item(row, component_column).text().strip().lower()
+                if component_column is not None and table.item(row, component_column)
+                else ""
+            )
+            service = (
+                table.item(row, service_column).text().strip().rstrip("/").lower()
+                if service_column is not None and table.item(row, service_column)
+                else ""
+            )
+            name = (
+                table.item(row, target_column).text().strip().lower()
+                if target_column is not None and table.item(row, target_column)
+                else ""
+            )
+            if service and target_service and service == target_service:
+                return row
+            if component == target_component and name and target_name and name == target_name:
+                return row
+        return None
+
+    def _discover_registered_machines(self, registry, targets):
+        self._ensure_source_metadata_columns()
+        warnings = []
+        for target in targets:
+            result = read_registered_machines(registry, target)
+            metadata = getattr(target, "metadata", None)
+            if isinstance(metadata, dict):
+                metadata["registered_machines"] = list(result.names)
+                metadata["machines_endpoint"] = result.endpoint
+                metadata["machines_error"] = result.error
+            for table in self._tables:
+                row = self._find_source_row(table, target)
+                if row is None:
+                    continue
+                headers = self._source_headers(table)
+                values = {
+                    "Registered Machines": result.full_text,
+                    "Machines Endpoint": result.endpoint or "-",
+                    "Machines Error": result.error or "-",
+                }
+                for name, value in values.items():
+                    column = headers[name]
+                    item = QTableWidgetItem(value)
+                    item.setToolTip(value)
+                    table.setItem(row, column, item)
+            if result.error:
+                warnings.append(
+                    f"{getattr(target, 'target_name', 'Target')}: {result.error}"
+                )
+        for detail_table in getattr(self, "detail_tables", []):
+            detail_table.refresh_from_source()
+        return warnings
+
     def _on_discovery(self, registry):
         targets = registry.get_connected_targets()
+        machines_warnings = self._discover_registered_machines(registry, targets)
         portals = [
             target for target in targets
             if str(target.component_type).lower() == "portal"
@@ -391,5 +486,7 @@ class V1ConnectionExperience(QWidget):
         )
         if portal_info_warning:
             message += f" Portal version fallback digunakan: {portal_info_warning}"
+        if machines_warnings:
+            message += " Registered Machines warning: " + " | ".join(machines_warnings)
         self.activity_message.emit(message)
         self.discovery_completed.emit(registry)

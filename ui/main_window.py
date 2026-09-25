@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
@@ -39,11 +39,11 @@ class DiscoveryWidget(QWidget):
         layout=QVBoxLayout(self); title=QLabel("Connection and Target Discovery"); title.setStyleSheet("font-size: 22px; font-weight: 700;"); layout.addWidget(title)
         target_box=QGroupBox("Target Type"); target_layout=QVBoxLayout(target_box); self.enterprise_radio=QRadioButton("ArcGIS Enterprise (Portal + all federated servers)"); self.standalone_radio=QRadioButton("ArcGIS Server (standalone / non-federated)"); self.enterprise_radio.setChecked(True); target_layout.addWidget(self.enterprise_radio); target_layout.addWidget(self.standalone_radio); layout.addWidget(target_box)
         box=QGroupBox("Connection"); self.form=QFormLayout(box); self.url_input=QLineEdit(); self.username_input=QLineEdit(); self.password_input=QLineEdit(); self.password_input.setEchoMode(QLineEdit.Password); self.verify_tls=QCheckBox("Verify TLS certificate"); self.verify_tls.setChecked(True); self.form.addRow("Portal URL:",self.url_input); self.form.addRow("Administrator username:",self.username_input); self.form.addRow("Password:",self.password_input); self.form.addRow("",self.verify_tls); layout.addWidget(box)
-        buttons=QHBoxLayout(); self.connect_button=QPushButton("Connect & Discover"); self.connect_button.clicked.connect(self.connect_target); self.export_button=QPushButton("Export Discovery JSON"); self.export_button.setEnabled(False); self.export_button.clicked.connect(self.export_current_result); buttons.addWidget(self.connect_button); buttons.addWidget(self.export_button); buttons.addStretch(); layout.addLayout(buttons)
+        buttons=QHBoxLayout(); self.connect_button=QPushButton("Connect Discover"); self.connect_button.clicked.connect(self.connect_target); self.export_button=QPushButton("Export Discovery JSON"); self.export_button.setEnabled(False); self.export_button.clicked.connect(self.export_current_result); buttons.addWidget(self.connect_button); buttons.addWidget(self.export_button); buttons.addStretch(); layout.addLayout(buttons)
         self.summary=QLabel("Belum terhubung."); layout.addWidget(self.summary); self.table=QTableWidget(0,len(self.HEADERS)); self.table.setHorizontalHeaderLabels(self.HEADERS); self.table.cellDoubleClicked.connect(self.show_target_details); layout.addWidget(self.table)
         self.enterprise_radio.toggled.connect(self.update_mode); self.standalone_radio.toggled.connect(self.update_mode); self.update_mode()
     def update_mode(self):
-        enterprise=self.enterprise_radio.isChecked(); self.form.labelForField(self.url_input).setText("Portal URL:" if enterprise else "Server URL:"); self.url_input.setPlaceholderText("https://host/portal" if enterprise else "https://host/server"); self.connect_button.setText("Connect & Discover" if enterprise else "Connect Standalone Server"); self.table.setRowCount(0); self.current_result=None; self.connection_registry=None; self.export_button.setEnabled(False); self.summary.setText("Belum terhubung.")
+        enterprise=self.enterprise_radio.isChecked(); self.form.labelForField(self.url_input).setText("Portal URL:" if enterprise else "Server URL:"); self.url_input.setPlaceholderText("https://host/portal" if enterprise else "https://host/server"); self.connect_button.setText("Connect Discover" if enterprise else "Connect Discover"); self.table.setRowCount(0); self.current_result=None; self.connection_registry=None; self.export_button.setEnabled(False); self.summary.setText("Belum terhubung.")
     def connect_target(self):
         url,username,password=self.url_input.text().strip(),self.username_input.text().strip(),self.password_input.text()
         if not url or not username or not password: QMessageBox.warning(self,"Data belum lengkap","URL, username, dan password wajib diisi."); return
