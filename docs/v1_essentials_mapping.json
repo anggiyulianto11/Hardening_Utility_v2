@@ -1,0 +1,111 @@
+{
+  "mapped_controls": [
+    {
+      "control_id": "AS-B5",
+      "control_name": "Standardized Queries are Enabled",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B7",
+      "control_name": "Token Acquisition via HTTP GET is Disabled",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B8",
+      "control_name": "Portal for ArcGIS Legend Servlet is Disabled",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B9",
+      "control_name": "Portal for ArcGIS Print Servlet is Disabled",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B10",
+      "control_name": "Portal for ArcGIS WFS Servlet is Disabled",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "DP-B2",
+      "control_name": "HTTPS is Enforced",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "DP-B3",
+      "control_name": "Signed CA Certificates",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B12",
+      "control_name": "Self-Creation of Built-In User Accounts is Disabled",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "IA-B10",
+      "control_name": "Public User Profile Sharing for organization users",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B14",
+      "control_name": "featureServiceXSSFilter to “input”",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B16",
+      "control_name": "ArcGIS Portal Directory",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B17",
+      "control_name": "ArcGIS Server Services Directory",
+      "matched_by": "services directory"
+    },
+    {
+      "control_id": "IA-B13",
+      "control_name": "New Member Default Role as Viewer",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B23",
+      "control_name": "callbackFunctionsEnabled set to false",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-B22",
+      "control_name": "Disabling Anonymous Access",
+      "matched_by": "anonymous access"
+    },
+    {
+      "control_id": "IA-B24",
+      "control_name": "Show Social Media Links",
+      "matched_by": "confirmed-id"
+    },
+    {
+      "control_id": "AS-A4",
+      "control_name": "featureServiceXSSFilter to “inputOutput”",
+      "matched_by": "confirmed-id"
+    }
+  ],
+  "mapped_count": 17,
+  "legacy_reference_controls": [
+    "HTTPS Enforcement",
+    "Signed CA Certificates",
+    "Portal Directory",
+    "Automatic Enterprise Account Creation",
+    "New Member Default Role as Viewer",
+    "Built-In Account Self-Creation",
+    "Public User Profile Sharing",
+    "Show Social Media Links",
+    "Anonymous Access",
+    "Portal Legend Servlet",
+    "Portal Print Servlet",
+    "Portal WFS Servlet",
+    "Services Directory",
+    "JSONP Callback Functions",
+    "Token Acquisition via HTTP GET",
+    "Standardized Queries",
+    "Feature Service XSS Filter Basic",
+    "Feature Service XSS Filter Advanced",
+    "Allowed Origins"
+  ]
+}

@@ -438,8 +438,6 @@ class V1ConnectionExperience(QWidget):
                 warnings.append(
                     f"{getattr(target, 'target_name', 'Target')}: {result.error}"
                 )
-        for detail_table in getattr(self, "detail_tables", []):
-            detail_table.refresh_from_source()
         return warnings
 
     def _on_discovery(self, registry):
@@ -462,9 +460,6 @@ class V1ConnectionExperience(QWidget):
             if version:
                 self._apply_portal_identity(portals[0], version)
                 self._refresh_portal_table_row(version)
-                for detail_table in getattr(self, 'detail_tables', []):
-                    detail_table.refresh_from_source()
-
         token_store = getattr(registry, "tokens", None)
         portal_token = getattr(token_store, "portal_token", None) if token_store else None
         server_tokens = getattr(token_store, "server_tokens", {}) if token_store else {}
@@ -489,4 +484,6 @@ class V1ConnectionExperience(QWidget):
         if machines_warnings:
             message += " Registered Machines warning: " + " | ".join(machines_warnings)
         self.activity_message.emit(message)
+        for detail_table in getattr(self, "detail_tables", []):
+            detail_table.bind_targets(targets)
         self.discovery_completed.emit(registry)
